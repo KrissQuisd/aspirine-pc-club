@@ -30,6 +30,70 @@ button{padding:14px;border:none;border-radius:10px;background:var(--accent);colo
 footer{background:#05070d;padding:40px;text-align:center}
 .reveal{opacity:0;transform:translateY(40px);transition:1s}
 .reveal.show{opacity:1;transform:none}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #7c5cff, #00d4ff);
+  margin: 10% auto;
+  padding: 30px;
+  border-radius: 15px;
+  max-width: 400px;
+  text-align: center;
+  color: white;
+  font-family: 'Exo 2', sans-serif;
+  box-shadow: 0 0 30px rgba(124, 92, 255, 0.5);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-content h2 {
+  margin: 0 0 15px 0;
+  font-size: 24px;
+}
+
+.modal-content p {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.modal button {
+  padding: 12px 30px;
+  background: white;
+  color: #7c5cff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  transition: 0.3s;
+}
+
+.modal button:hover {
+  background: #f0f0f0;
+  transform: scale(1.05);
+}
+
 @media(max-width:600px){.btn{padding:12px 18px;margin:6px;font-size:0.9rem}.hero-logo{max-width:80vw}}
 </style>
 </head>
@@ -185,6 +249,14 @@ footer{background:#05070d;padding:40px;text-align:center}
 <p>Красилів • вул. Грушевського 47А</p>
 </footer>
 
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h2 id="modalTitle">✅ ASPIRINE PC CLUB</h2>
+    <p id="modalMessage"></p>
+    <button onclick="closeModal()">OK</button>
+  </div>
+</div>
+
 <script>
 document.querySelectorAll('.reveal').forEach(el=>{
   new IntersectionObserver(e=>{
@@ -195,14 +267,33 @@ document.querySelectorAll('.reveal').forEach(el=>{
 pchours.onchange=()=>pcprice.textContent=pchours.value;
 psprice.onchange=()=>pscost.textContent=psprice.value;
 
+function showModal(message, isSuccess = true) {
+  const modal = document.getElementById('modal');
+  const modalMessage = document.getElementById('modalMessage');
+  const modalTitle = document.getElementById('modalTitle');
+  
+  modalMessage.textContent = message;
+  modalTitle.textContent = isSuccess ? '✅ ASPIRINE PC CLUB' : '❌ ASPIRINE PC CLUB';
+  modal.style.display = 'block';
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+  const modal = document.getElementById('modal');
+  if (event.target == modal) {
+    modal.style.display = 'none';
+  }
+}
+
 async function book(e, type) {
   e.preventDefault();
   
   const form = e.target;
-  const formData = new FormData(form);
-  
-  const date = formData.get('date') || form.querySelector('input[type="date"]').value;
-  const time = formData.get('time') || form.querySelector('input[type="time"]').value;
+  const date = form.querySelector('input[type="date"]').value;
+  const time = form.querySelector('input[type="time"]').value;
   const phone = form.querySelector('input[placeholder="Телефон"]').value;
   
   let price, pc, ps5Option;
@@ -228,10 +319,10 @@ async function book(e, type) {
       showModal('Бронування успішно! Чекайте на дзвінок для підтвердження');
       form.reset();
     } else {
-      alert('❌ Ошибка: ' + data.error);
+      showModal(data.error, false);
     }
   } catch (error) {
-    alert('❌ Ошибка подключения к серверу');
+    showModal('❌ Помилка підключення до сервера', false);
     console.error(error);
   }
 }
