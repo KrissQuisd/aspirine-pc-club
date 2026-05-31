@@ -11,6 +11,44 @@
 --bg:#090b12;--card:#131826;--accent:#7c5cff;--accent2:#00d4ff;--text:#eef2ff;
 }
 *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#090b12,#111827);color:var(--text);font-family:'Exo 2',sans-serif}
+  
+  /* BANNER ЗАЧИНЕНО */
+.club-closed-banner {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+  color: white;
+  padding: 20px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 2000;
+  box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+  animation: slideDown 0.5s ease-out;
+}
+
+.club-closed-banner.show {
+  display: block;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+body.club-closed {
+  margin-top: 70px;
+}
+  
 header{
 min-height:100vh;
 background:url('images/hero.jpg') center/cover;position:relative;display:flex;align-items:center;justify-content:center;text-align:center}
@@ -148,6 +186,11 @@ footer{background:#05070d;padding:40px;text-align:center}
 </style>
 </head>
 <body>
+  
+  <!-- BANNER ЗАЧИНЕНО -->
+<div id="closedBanner" class="club-closed-banner">
+  🔒 Сьогодні не працюємо! Слідкуйте за новинами в Instagram 📲
+</div>
 
 <header>
 <div class="hero">
@@ -315,40 +358,30 @@ footer{background:#05070d;padding:40px;text-align:center}
 <script>
 const API_URL = 'https://aspirine-pc-club.onrender.com';
 
-// Перевірка статусу клубу
+// Перевіра статусу клубу при завантаженні
 async function checkClubStatus() {
   try {
     const response = await fetch(`${API_URL}/api/club-status`);
-    if (!response.ok) throw new Error('Network response was not ok');
-    
     const data = await response.json();
-   
+    
     if (data.isClosed) {
       document.body.classList.add('club-closed');
       document.getElementById('closedBanner').classList.add('show');
       
-      const pcBtn = document.getElementById('pcBtn');
-      const ps5Btn = document.getElementById('ps5Btn');
-      const pcBookBtn = document.getElementById('pcBookBtn');
-      const ps5BookBtn = document.getElementById('ps5BookBtn');
-      
-      if (pcBtn) pcBtn.classList.add('disabled');
-      if (ps5Btn) ps5Btn.classList.add('disabled');
-      if (pcBookBtn) pcBookBtn.disabled = true;
-      if (ps5BookBtn) ps5BookBtn.disabled = true;
+      // Деактивуємо кнопки бронювання
+      document.getElementById('pcBtn').classList.add('disabled');
+      document.getElementById('ps5Btn').classList.add('disabled');
+      document.getElementById('pcBookBtn').disabled = true;
+      document.getElementById('ps5BookBtn').disabled = true;
     } else {
       document.body.classList.remove('club-closed');
       document.getElementById('closedBanner').classList.remove('show');
       
-      const pcBtn = document.getElementById('pcBtn');
-      const ps5Btn = document.getElementById('ps5Btn');
-      const pcBookBtn = document.getElementById('pcBookBtn');
-      const ps5BookBtn = document.getElementById('ps5BookBtn');
-      
-      if (pcBtn) pcBtn.classList.remove('disabled');
-      if (ps5Btn) ps5Btn.classList.remove('disabled');
-      if (pcBookBtn) pcBookBtn.disabled = false;
-      if (ps5BookBtn) ps5BookBtn.disabled = false;
+      // Активуємо кнопки
+      document.getElementById('pcBtn').classList.remove('disabled');
+      document.getElementById('ps5Btn').classList.remove('disabled');
+      document.getElementById('pcBookBtn').disabled = false;
+      document.getElementById('ps5BookBtn').disabled = false;
     }
   } catch (error) {
     console.error('❌ Помилка при перевірці статусу:', error);
@@ -358,7 +391,7 @@ async function checkClubStatus() {
 // Перевіряємо статус кожні 5 секунд
 setInterval(checkClubStatus, 5000);
 checkClubStatus();
-
+  
 // Анімація секцій
 document.querySelectorAll('.reveal').forEach(el => {
   new IntersectionObserver(entries => {
@@ -397,16 +430,13 @@ window.onclick = function(event) {
 async function book(e, type) {
   e.preventDefault();
  
-  try {
-    const statusResponse = await fetch(`${API_URL}/api/club-status`);
-    const statusData = await statusResponse.json();
- 
-    if (statusData.isClosed) {
-      showModal('❌ Клуб сьогодні зачинений', false);
-      return;
-    }
-  } catch (err) {
-    console.error('Status check failed', err);
+  // Перевіра чи клуб зачинений
+  const response = await fetch(`${API_URL}/api/club-status`);
+  const data = await response.json();
+  
+  if (data.isClosed) {
+    showModal('❌ Клуб сьогодні зачинений', false);
+    return;
   }
  
   const form = e.target;
