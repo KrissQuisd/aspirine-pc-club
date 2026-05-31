@@ -87,6 +87,50 @@ function getCurrentDate() {
   return now.toISOString().split('T')[0];
 }
 
+// Валідація дати бронювання
+function validateBookingDate(dateString) {
+  const selectedDate = new Date(dateString);
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+  
+  // Обнулюємо час для коректного порівняння
+  today.setHours(0, 0, 0, 0);
+  selectedDate.setHours(0, 0, 0, 0);
+  
+  // Отримуємо поточний рік
+  const currentYear = today.getFullYear();
+  const selectedYear = selectedDate.getFullYear();
+  
+  // Перевіра: дата з іншого року
+  if (selectedYear !== currentYear) {
+    return {
+      valid: false,
+      error: 'Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  // Перевіра: не раніше ніж сьогодні
+  if (selectedDate < today) {
+    return {
+      valid: false,
+      error: 'Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  // Обчислюємо максимальну дату (сьогодні + 7 днів)
+  const maxDate = new Date(today);
+  maxDate.setDate(maxDate.getDate() + 7);
+  
+  // Перевіра: не більше ніж на 7 днів вперед
+  if (selectedDate > maxDate) {
+    return {
+      valid: false,
+      error: 'Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  return { valid: true };
+}
+
 // ===== BOOKING FUNCTIONS =====
 function checkBlacklist(ip, phone) {
   return new Promise((resolve) => {
@@ -364,13 +408,13 @@ bot.on('callback_query', async (query) => {
 🖥 ${newPc}`
            );
 
-          }
-        );
+         }
+       );
 
-       });
+      });
 
-      }
-      else if (data.startsWith('remove_blacklist_')) {
+    }
+    else if (data.startsWith('remove_blacklist_')) {
 
   const blacklistId = parseInt(
     data.replace('remove_blacklist_', '')
@@ -433,6 +477,15 @@ app.post('/api/book', async (req, res) => {
 
   if (!date || !time || !price || !phone || !type) {
     return res.status(400).json({ success: false, error: 'Недостатньо даних' });
+  }
+
+  // Валідація дати на бекенді
+  const dateValidation = validateBookingDate(date);
+  if (!dateValidation.valid) {
+    return res.status(400).json({ 
+      success: false, 
+      error: '❌ ' + dateValidation.error
+    });
   }
 
   db.get(`SELECT is_closed FROM club_status WHERE id = 1`, async (err, row) => {
