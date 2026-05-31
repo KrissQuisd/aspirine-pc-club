@@ -225,7 +225,7 @@ async function book(e, type) {
     const data = await response.json();
     
     if (data.success) {
-      alert('✅ Бронирование успешно! Данные отправлены в Telegram.');
+      showModal('Бронування успішно! Чекайте на дзвінок для підтвердження');
       form.reset();
     } else {
       alert('❌ Ошибка: ' + data.error);
