@@ -19,6 +19,7 @@ if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
 const ipLastBooking = new Map();
 const SPAM_COOLDOWN = 10 * 60 * 1000; // 10 минут
 const MIN_BOOKING_ADVANCE = 60 * 60 * 1000; // 1 час вперед
+const TIMEZONE = 'Europe/Kyiv'; // Часовой пояс
 
 // Получение IP клиента
 function getClientIP(req) {
@@ -43,7 +44,7 @@ function checkSpamLimit(ip) {
     const minutes = Math.ceil(remainingSeconds / 60);
     return { 
       allowed: false, 
-      message: `⏱️ Зачекай ${minutes} хвилин перед наступним бронюванням` 
+      message: `⏱️ Підожди ${minutes} хвилин перед наступною бронею` 
     };
   }
   
@@ -52,20 +53,29 @@ function checkSpamLimit(ip) {
 
 // ✅ Проверка минимального времени бронирования (мин 1 час вперед)
 function validateBookingTime(bookingDate, bookingTime) {
-  const now = new Date();
   const [year, month, day] = bookingDate.split('-');
   const [hours, minutes] = bookingTime.split(':');
   
-  const bookingDateTime = new Date(year, month - 1, day, hours, minutes, 0);
-  const timeDiff = bookingDateTime - now;
+  // Получаем текущее время в Киеве
+  const nowLocal = new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+  
+  // Создаем дату бронирования в локальном часовом поясе
+  const bookingDateTime = new Date(year, month - 1, day, parseInt(hours), parseInt(minutes), 0);
+  
+  const timeDiff = bookingDateTime - nowLocal;
+  
+  console.log(`🕐 Поточний час: ${nowLocal.toLocaleString('uk-UA', { timeZone: TIMEZONE })}`);
+  console.log(`🕐 Час бронювання: ${bookingDateTime.toLocaleString('uk-UA')}`);
+  console.log(`⏳ Різниця: ${Math.floor(timeDiff / (1000 * 60))} хвилин`);
   
   if (timeDiff < MIN_BOOKING_ADVANCE) {
-    const hoursUntil = Math.floor(timeDiff / (1000 * 60 * 60));
-    const minutesUntil = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const totalMinutes = Math.floor(timeDiff / (1000 * 60));
+    const hoursUntil = Math.floor(totalMinutes / 60);
+    const minutesUntil = Math.abs(totalMinutes % 60);
     
     return {
       valid: false,
-      message: `⏳ Бронь можна робити щонайменше на 1 годину вперед. Нині залишилося: ${hoursUntil}ч ${minutesUntil}м`
+      message: `⏳ Бронь можна робити мінімум на 1 годину вперед. Зараз залишилось: ${hoursUntil}ч ${minutesUntil}м`
     };
   }
   
@@ -93,14 +103,17 @@ function getBookingHours(priceStr) {
 
 // Расчет времени до бронирования
 function getTimeUntilBooking(bookingDate, bookingTime) {
-  const now = new Date();
+  const nowLocal = new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+  
   const [year, month, day] = bookingDate.split('-');
   const [hours, minutes] = bookingTime.split(':');
   
-  const bookingDateTime = new Date(year, month - 1, day, hours, minutes, 0);
-  const timeDiff = bookingDateTime - now;
+  const bookingDateTime = new Date(year, month - 1, day, parseInt(hours), parseInt(minutes), 0);
+  const timeDiff = bookingDateTime - nowLocal;
   
-  if (timeDiff < 0) return '❌ Дата вже минула!';
+  if (timeDiff < 0) {
+    return '❌ Дата вже минула!';
+  }
   
   const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   const remainingHours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -123,11 +136,11 @@ async function sendToTelegram(bookingData, clientIP) {
   const timeUntil = getTimeUntilBooking(date, time);
   
   const message = `
-🎮 *НОВЕ ЗАБРОНЮВАННЯ!*
+🎮 *НОВЕ БРОНЮВАННЯ!*
 
 📅 Дата: \`${date}\`
 🕐 Час: \`${time}\`
-⏱️ Тривалість:: \`${hours}\`
+⏱️ Тривалість: \`${hours}\`
 💰 Ціна: \`${price} грн\`
 📱 Телефон: \`${phone}\`
 🎯 Тип: \`${type}\`
@@ -143,15 +156,16 @@ ${pc ? `🖥️ ПК: ${pc}` : ps5Option ? `📺 PS5: ${ps5Option}` : ''}
       text: message,
       parse_mode: 'Markdown'
     }, { timeout: 5000 });
+    console.log('✅ Повідомлення відправлено в Telegram');
     return true;
   } catch (error) {
-    console.error('❌ Ошибка:', error.message);
+    console.error('❌ Помилка:', error.message);
     return false;
   }
 }
 
 app.get('/', (req, res) => {
-  res.json({ status: '✅ Сервер работает' });
+  res.json({ status: '✅ Сервер працює' });
 });
 
 app.post('/api/book', async (req, res) => {
@@ -165,24 +179,24 @@ app.post('/api/book', async (req, res) => {
   // 🛡️ ПРОВЕРКА СПАМА
   const spamCheck = checkSpamLimit(clientIP);
   if (!spamCheck.allowed) {
-    console.warn(`⚠️ Спам от ${clientIP}`);
+    console.warn(`⚠️ Спам від ${clientIP}`);
     return res.status(429).json({ success: false, error: spamCheck.message });
   }
 
   // ⏳ ПРОВЕРКА МИНИМАЛЬНОГО ВРЕМЕНИ
   const timeCheck = validateBookingTime(date, time);
   if (!timeCheck.valid) {
-    console.warn(`⚠️ Невірний час від ${clientIP}`);
+    console.warn(`⚠️ Неправильний час від ${clientIP}`);
     return res.status(400).json({ success: false, error: timeCheck.message });
   }
 
-  console.log(`📥 Бронь от ${clientIP}: ${type} на ${date} в ${time}`);
+  console.log(`📥 Бронювання від ${clientIP}: ${type} на ${date} в ${time}`);
 
   const success = await sendToTelegram({ date, time, price, phone, type, pc, ps5Option }, clientIP);
 
   if (success) {
-    ipLastBooking.set(clientIP, Date.now()); // Обновляем время последней броне
-    res.json({ success: true, message: '✅ Бронювання відправленно!' });
+    ipLastBooking.set(clientIP, Date.now()); // Обновляем время последней брони
+    res.json({ success: true, message: '✅ Бронювання відправлено!' });
   } else {
     res.status(500).json({ success: false, error: 'Помилка відправки' });
   }
@@ -196,12 +210,13 @@ setInterval(() => {
       ipLastBooking.delete(ip);
     }
   }
-  console.log(`🧹 Активных IP: ${ipLastBooking.size}`);
+  console.log(`🧹 Активних IP: ${ipLastBooking.size}`);
 }, 60 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен на ${PORT}`);
-  console.log(`🛡️ Спам-защита: 10 минут между бронями`);
-  console.log(`⏳ Мин. время: 1 час вперед`);
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`🛡️ Захист від спаму: 10 хвилин між бронями`);
+  console.log(`⏳ Мін. час: 1 година вперед`);
+  console.log(`🕐 Часовий пояс: ${TIMEZONE}`);
 });
