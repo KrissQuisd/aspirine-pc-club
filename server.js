@@ -43,7 +43,7 @@ function checkSpamLimit(ip) {
     const minutes = Math.ceil(remainingSeconds / 60);
     return { 
       allowed: false, 
-      message: `⏱️ Подожди ${minutes} минут перед следующей бронью` 
+      message: `⏱️ Зачекай ${minutes} хвилин перед наступним бронюванням` 
     };
   }
   
@@ -65,7 +65,7 @@ function validateBookingTime(bookingDate, bookingTime) {
     
     return {
       valid: false,
-      message: `⏳ Бронь можно делать минимум на 1 час вперед. Сейчас осталось: ${hoursUntil}ч ${minutesUntil}м`
+      message: `⏳ Бронь можна робити щонайменше на 1 годину вперед. Нині залишилося: ${hoursUntil}ч ${minutesUntil}м`
     };
   }
   
@@ -100,7 +100,7 @@ function getTimeUntilBooking(bookingDate, bookingTime) {
   const bookingDateTime = new Date(year, month - 1, day, hours, minutes, 0);
   const timeDiff = bookingDateTime - now;
   
-  if (timeDiff < 0) return '❌ Дата уже прошла!';
+  if (timeDiff < 0) return '❌ Дата вже минула!';
   
   const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   const remainingHours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -123,17 +123,17 @@ async function sendToTelegram(bookingData, clientIP) {
   const timeUntil = getTimeUntilBooking(date, time);
   
   const message = `
-🎮 *НОВОЕ БРОНИРОВАНИЕ!*
+🎮 *НОВЕ ЗАБРОНЮВАННЯ!*
 
 📅 Дата: \`${date}\`
-🕐 Время: \`${time}\`
-⏱️ Длительность: \`${hours}\`
-💰 Цена: \`${price} грн\`
+🕐 Час: \`${time}\`
+⏱️ Тривалість:: \`${hours}\`
+💰 Ціна: \`${price} грн\`
 📱 Телефон: \`${phone}\`
 🎯 Тип: \`${type}\`
 ${pc ? `🖥️ ПК: ${pc}` : ps5Option ? `📺 PS5: ${ps5Option}` : ''}
 
-⏳ До бронирования: \`${timeUntil}\`
+⏳ До бронювання: \`${timeUntil}\`
 🌐 IP адрес: \`${clientIP}\`
   `.trim();
 
@@ -159,7 +159,7 @@ app.post('/api/book', async (req, res) => {
   const clientIP = getClientIP(req);
 
   if (!date || !time || !price || !phone || !type) {
-    return res.status(400).json({ success: false, error: 'Недостаточно данных' });
+    return res.status(400).json({ success: false, error: 'Недостатньо даних' });
   }
 
   // 🛡️ ПРОВЕРКА СПАМА
@@ -172,7 +172,7 @@ app.post('/api/book', async (req, res) => {
   // ⏳ ПРОВЕРКА МИНИМАЛЬНОГО ВРЕМЕНИ
   const timeCheck = validateBookingTime(date, time);
   if (!timeCheck.valid) {
-    console.warn(`⚠️ Неверное время от ${clientIP}`);
+    console.warn(`⚠️ Невірний час від ${clientIP}`);
     return res.status(400).json({ success: false, error: timeCheck.message });
   }
 
@@ -182,9 +182,9 @@ app.post('/api/book', async (req, res) => {
 
   if (success) {
     ipLastBooking.set(clientIP, Date.now()); // Обновляем время последней броне
-    res.json({ success: true, message: '✅ Бронирование отправлено!' });
+    res.json({ success: true, message: '✅ Бронювання відправленно!' });
   } else {
-    res.status(500).json({ success: false, error: 'Ошибка отправки' });
+    res.status(500).json({ success: false, error: 'Помилка відправки' });
   }
 });
 
