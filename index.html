@@ -58,7 +58,7 @@ header:before{content:'';position:absolute;inset:0;background:rgba(0,0,0,.65)}
 h1{font-family:Cinzel,serif;font-size:clamp(3rem,8vw,6rem);margin:0}
 .sword{color:#00d4ff}
 .hero-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:0}
-.btn{display:inline-block;margin:10px;padding:15px 28px;border-radius:12px;text-decoration:none;color:white;background:linear-gradient(45deg,var(--accent),var(--accent2));transition:all 0.3s ease;cursor:pointer;border:none;font-weight:bold;font-size:1rem}
+.btn{display:inline-block;margin:10px;padding:15px 28px;border-radius:12px;text-decoration:none;color:white;background:linear-gradient(45deg,var(--accent),var(--accent2));transition:all 0.3s ease;[...]
 .btn:active{transform:scale(0.95);box-shadow:inset 0 0 10px rgba(0,0,0,0.3)}
 .btn:hover{transform:translateY(-3px);box-shadow:0 5px 20px rgba(124,92,255,0.4)}
 section{padding:80px 20px;max-width:1200px;margin:auto}
@@ -172,6 +172,21 @@ footer{background:#05070d;padding:40px;text-align:center}
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
+/* Прайс - стилізація */
+.price-main {
+  font-size: 1.8rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, #7c5cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.price-value {
+  font-size: 1.2rem;
+  opacity: 0.85;
+}
+
 @media(max-width:600px){
   .btn{padding:12px 18px;margin:6px;font-size:0.9rem}
   .hero-logo{max-width:80vw}
@@ -206,7 +221,7 @@ footer{background:#05070d;padding:40px;text-align:center}
 
 <section class="reveal">
 <h2>Про клуб</h2>
-<p>Asp⚔rine — це місце, де звичайний вечір перетворюється на рейд, турнір або легендарний камбек. 5 потужних ПК та PlayStation 5 чекають на тебе у самому серці Красилова.</p>
+<p>Asp⚔rine — це місце, де звичайний вечір перетворюється на рейд, турнір або легендарний камбек. 5 потужних ПК [...]
 </section>
 
 <section class="reveal">
@@ -220,30 +235,30 @@ footer{background:#05070d;padding:40px;text-align:center}
 <section class="reveal">
 <h2>Прайс ПК</h2>
 <div class="cards">
-<div class="card">1 год — 100 грн</div>
-<div class="card">2 год — 200 грн</div>
-<div class="card">3 год — 300 грн</div>
-<div class="card">4 год — 360 грн</div>
-<div class="card">5 год — 440 грн</div>
-<div class="card">6 год — 500 грн</div>
+<div class="card"><div class="price-main">1 год</div><div class="price-value">100 грн</div></div>
+<div class="card"><div class="price-main">2 год</div><div class="price-value">200 грн</div></div>
+<div class="card"><div class="price-main">3 год</div><div class="price-value">300 грн</div></div>
+<div class="card"><div class="price-main">4 год</div><div class="price-value">360 грн</div></div>
+<div class="card"><div class="price-main">5 год</div><div class="price-value">440 грн</div></div>
+<div class="card"><div class="price-main">6 год</div><div class="price-value">500 грн</div></div>
 </div>
 </section>
 
 <section class="reveal">
 <h2>Прайс PlayStation 5</h2>
 <div class="cards">
-<div class="card">1 гравець / 4 год — 360 грн</div>
-<div class="card">1 гравець / 6 год — 520 грн</div>
-<div class="card">2 гравці / 4 год — 720 грн</div>
-<div class="card">2 гравці / 6 год — 1040 грн</div>
-<div class="card">Погодинно: 100 / 200 / 250 грн</div>
+<div class="card"><div class="price-main">1 гравець / 4 год</div><div class="price-value">360 грн</div></div>
+<div class="card"><div class="price-main">1 гравець / 6 год</div><div class="price-value">520 грн</div></div>
+<div class="card"><div class="price-main">2 гравці / 4 год</div><div class="price-value">720 грн</div></div>
+<div class="card"><div class="price-main">2 гравці / 6 год</div><div class="price-value">1040 грн</div></div>
+<div class="card"><div class="price-main">Погодинно</div><div class="price-value">100 / 200 / 250 грн</div></div>
 </div>
 </section>
 
 <section id="pc" class="reveal">
 <h2>Бронювання ПК</h2>
 <form onsubmit="book(event,'ПК')">
-<input required type="date">
+<input required type="date" id="pcDate">
 <input required type="time">
 <select id="pchours">
 <option value="100">1 година</option>
@@ -265,7 +280,7 @@ footer{background:#05070d;padding:40px;text-align:center}
 <section id="ps5" class="reveal">
 <h2>Бронювання PS5</h2>
 <form onsubmit="book(event,'PS5')">
-<input required type="date">
+<input required type="date" id="ps5Date">
 <input required type="time">
 <select id="psprice">
 
@@ -358,6 +373,66 @@ footer{background:#05070d;padding:40px;text-align:center}
 <script>
 const API_URL = 'https://aspirine-pc-club.onrender.com';
 
+// Функція валідації дати
+function validateBookingDate(dateString) {
+  const selectedDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Обнулюємо час для коректного порівняння
+  selectedDate.setHours(0, 0, 0, 0);
+  
+  // Отримуємо поточний рік
+  const currentYear = today.getFullYear();
+  const selectedYear = selectedDate.getFullYear();
+  
+  // Перевіра: дата з іншого року
+  if (selectedYear !== currentYear) {
+    return {
+      valid: false,
+      error: '❌ Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  // Перевіра: не раніше ніж сьогодні
+  if (selectedDate < today) {
+    return {
+      valid: false,
+      error: '❌ Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  // Обчислюємо максимальну дату (сьогодні + 7 днів)
+  const maxDate = new Date(today);
+  maxDate.setDate(maxDate.getDate() + 7);
+  
+  // Перевіра: не більше ніж на 7 днів вперед
+  if (selectedDate > maxDate) {
+    return {
+      valid: false,
+      error: '❌ Бронювання можливе лише у поточному році і максимум на тиждень вперед!'
+    };
+  }
+  
+  return { valid: true };
+}
+
+// Встановлюємо мінімальну дату у date input (сьогодні)
+function setDateLimits() {
+  const today = new Date();
+  const dateString = today.toISOString().split('T')[0];
+  
+  const pcDateInput = document.getElementById('pcDate');
+  const ps5DateInput = document.getElementById('ps5Date');
+  
+  if (pcDateInput) {
+    pcDateInput.min = dateString;
+  }
+  if (ps5DateInput) {
+    ps5DateInput.min = dateString;
+  }
+}
+
 // Перевіра статусу клубу при завантаженні
 async function checkClubStatus() {
   try {
@@ -391,6 +466,9 @@ async function checkClubStatus() {
 // Перевіряємо статус кожні 5 секунд
 setInterval(checkClubStatus, 5000);
 checkClubStatus();
+
+// Встановлюємо обмеження дат при завантаженні
+setDateLimits();
   
 // Анімація секцій
 document.querySelectorAll('.reveal').forEach(el => {
@@ -456,6 +534,13 @@ async function book(e, type) {
  
   if (!date || !time || !phone) {
     showModal('Будь ласка, заповніть всі поля', false);
+    return;
+  }
+
+  // Валідація дати на фронтенді
+  const dateValidation = validateBookingDate(date);
+  if (!dateValidation.valid) {
+    showModal(dateValidation.error, false);
     return;
   }
  
