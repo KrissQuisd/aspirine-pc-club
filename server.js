@@ -245,20 +245,46 @@ bot.on('callback_query', async (query) => {
       });
     }
     else if (data === 'view_blacklist') {
-      db.all(`SELECT * FROM blacklist ORDER BY created_at DESC LIMIT 10`, (err, rows) => {
-        if (!rows || rows.length === 0) {
-          bot.sendMessage(chatId, '📋 Чорний список порожній');
-          return;
-        }
+  db.all(`SELECT * FROM blacklist ORDER BY created_at DESC`, (err, rows) => {
 
-        let text = '⛔ *Чорний список:*\n\n';
-        rows.forEach((entry, index) => {
-          text += `${index + 1}. ${entry.phone || entry.ip}\n`;
-        });
-
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-      });
+    if (!rows || rows.length === 0) {
+      bot.sendMessage(chatId, '📋 Чорний список порожній');
+      return;
     }
+
+    let text = '⛔ *Чорний список:*\n\n';
+
+    const keyboard = {
+      inline_keyboard: []
+    };
+
+    rows.forEach((entry, index) => {
+
+      text += `${index + 1}. ${entry.phone || entry.ip}\n`;
+
+      keyboard.inline_keyboard.push([
+        {
+          text: `🗑 Видалити #${entry.id}`,
+          callback_data: `remove_blacklist_${entry.id}`
+        }
+      ]);
+
+    });
+
+    keyboard.inline_keyboard.push([
+      {
+        text: '◀️ Назад',
+        callback_data: 'blacklist_menu'
+      }
+    ]);
+
+    bot.sendMessage(chatId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+      });
+
+     });
+   }
     else if (data === 'close_club') {
       db.run(`UPDATE club_status SET is_closed = 1 WHERE id = 1`, () => {
         bot.answerCallbackQuery(query.id, '🔒 Клуб закрито!', true);
@@ -278,6 +304,96 @@ bot.on('callback_query', async (query) => {
         bot.sendMessage(chatId, `✅ Бронювання #${bookingId} скасовано`);
       });
     }
+      else if (data.startsWith('reschedule_')) {
+
+  const bookingId = parseInt(
+    data.replace('reschedule_', '')
+  );
+
+  bot.sendMessage(
+    chatId,
+    `🔄 Введіть нові дані:
+
+Формат:
+
+дата час пк
+
+Приклад:
+
+2026-06-05 18:00 ПК №3`
+  );
+
+  bot.once('message', (msg) => {
+
+    const parts = msg.text.split(' ');
+
+    if (parts.length < 3) {
+
+      bot.sendMessage(
+        chatId,
+        '❌ Невірний формат'
+      );
+
+      return;
+    }
+
+    const newDate = parts[0];
+    const newTime = parts[1];
+    const newPc = parts.slice(2).join(' ');
+
+    db.run(
+      `UPDATE bookings
+       SET date = ?,
+           time = ?,
+           pc_number = ?
+       WHERE id = ?`,
+      [
+        newDate,
+        newTime,
+        newPc,
+        bookingId
+      ],
+      () => {
+
+        bot.sendMessage(
+          chatId,
+          `✅ Бронювання #${bookingId} перенесено
+
+📅 ${newDate}
+🕐 ${newTime}
+🖥 ${newPc}`
+           );
+
+          }
+        );
+
+       });
+
+      }
+      else if (data.startsWith('remove_blacklist_')) {
+
+  const blacklistId = parseInt(
+    data.replace('remove_blacklist_', '')
+  );
+
+  db.run(
+    `DELETE FROM blacklist WHERE id = ?`,
+    [blacklistId],
+    () => {
+
+      bot.answerCallbackQuery(
+        query.id,
+        '✅ Видалено'
+      );
+
+      bot.sendMessage(
+        chatId,
+        `✅ Запис #${blacklistId} видалено з чорного списку`
+      );
+
+       }
+     );
+   }
     else if (data === 'start') {
       bot.editMessageText('🎮 *АДМІН ПАНЕЛЬ ASPIRINE PC CLUB*\n\nВиберіть дію:', {
         chat_id: chatId,
