@@ -435,7 +435,7 @@ async function book(e, type) {
   const data = await response.json();
   
   if (data.isClosed) {
-    showModal('❌ Клуб сьогодні зачинений', false);
+    showModal('❌ Ми сьогодні не працюємо, слідкуйте за новинами в Instagram!↘️', false);
     return;
   }
  
