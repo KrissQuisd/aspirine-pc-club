@@ -15,15 +15,64 @@ if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
   process.exit(1);
 }
 
-// Функция для получения IP адреса
+// 🛡️ ЗАЩИТА ОТ СПАМА
+const ipLastBooking = new Map();
+const SPAM_COOLDOWN = 10 * 60 * 1000; // 10 минут
+const MIN_BOOKING_ADVANCE = 60 * 60 * 1000; // 1 час вперед
+
+// Получение IP клиента
 function getClientIP(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || 
          req.connection.remoteAddress || 
-         req.socket.remoteAddress ||
-         'N/A';
+         req.socket.remoteAddress || 'N/A';
 }
 
-// Функция для вычисления часов бронирования
+// ✅ Проверка спама по IP
+function checkSpamLimit(ip) {
+  const now = Date.now();
+  const lastBookingTime = ipLastBooking.get(ip);
+  
+  if (!lastBookingTime) {
+    return { allowed: true, message: null };
+  }
+  
+  const timeSinceLastBooking = now - lastBookingTime;
+  
+  if (timeSinceLastBooking < SPAM_COOLDOWN) {
+    const remainingSeconds = Math.ceil((SPAM_COOLDOWN - timeSinceLastBooking) / 1000);
+    const minutes = Math.ceil(remainingSeconds / 60);
+    return { 
+      allowed: false, 
+      message: `⏱️ Подожди ${minutes} минут перед следующей бронью` 
+    };
+  }
+  
+  return { allowed: true, message: null };
+}
+
+// ✅ Проверка минимального времени бронирования (мин 1 час вперед)
+function validateBookingTime(bookingDate, bookingTime) {
+  const now = new Date();
+  const [year, month, day] = bookingDate.split('-');
+  const [hours, minutes] = bookingTime.split(':');
+  
+  const bookingDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+  const timeDiff = bookingDateTime - now;
+  
+  if (timeDiff < MIN_BOOKING_ADVANCE) {
+    const hoursUntil = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutesUntil = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return {
+      valid: false,
+      message: `⏳ Бронь можно делать минимум на 1 час вперед. Сейчас осталось: ${hoursUntil}ч ${minutesUntil}м`
+    };
+  }
+  
+  return { valid: true, message: null };
+}
+
+// Вычисление часов по цене
 function getBookingHours(priceStr) {
   const priceMap = {
     '100': '1 час',
@@ -42,7 +91,7 @@ function getBookingHours(priceStr) {
   return priceMap[priceStr] || priceStr;
 }
 
-// Функция для расчета времени до бронирования
+// Расчет времени до бронирования
 function getTimeUntilBooking(bookingDate, bookingTime) {
   const now = new Date();
   const [year, month, day] = bookingDate.split('-');
@@ -51,9 +100,7 @@ function getTimeUntilBooking(bookingDate, bookingTime) {
   const bookingDateTime = new Date(year, month - 1, day, hours, minutes, 0);
   const timeDiff = bookingDateTime - now;
   
-  if (timeDiff < 0) {
-    return '❌ Дата уже прошла!';
-  }
+  if (timeDiff < 0) return '❌ Дата уже прошла!';
   
   const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   const remainingHours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -68,7 +115,7 @@ function getTimeUntilBooking(bookingDate, bookingTime) {
   }
 }
 
-// Функция для отправки в Telegram
+// Отправка в Telegram
 async function sendToTelegram(bookingData, clientIP) {
   const { date, time, price, phone, type, pc, ps5Option } = bookingData;
   
@@ -95,11 +142,10 @@ ${pc ? `🖥️ ПК: ${pc}` : ps5Option ? `📺 PS5: ${ps5Option}` : ''}
       chat_id: TELEGRAM_CHAT_ID,
       text: message,
       parse_mode: 'Markdown'
-    });
-    console.log('✅ Сообщение отправлено в Telegram');
+    }, { timeout: 5000 });
     return true;
   } catch (error) {
-    console.error('❌ Ошибка отправки в Telegram:', error.message);
+    console.error('❌ Ошибка:', error.message);
     return false;
   }
 }
@@ -112,37 +158,50 @@ app.post('/api/book', async (req, res) => {
   const { date, time, price, phone, type, pc, ps5Option } = req.body;
   const clientIP = getClientIP(req);
 
-  // Валидация данных
   if (!date || !time || !price || !phone || !type) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Недостаточно данных для бронирования' 
-    });
+    return res.status(400).json({ success: false, error: 'Недостаточно данных' });
   }
 
-  console.log(`📥 Новое бронирование от ${clientIP}: ${type} на ${date} в ${time}`);
+  // 🛡️ ПРОВЕРКА СПАМА
+  const spamCheck = checkSpamLimit(clientIP);
+  if (!spamCheck.allowed) {
+    console.warn(`⚠️ Спам от ${clientIP}`);
+    return res.status(429).json({ success: false, error: spamCheck.message });
+  }
+
+  // ⏳ ПРОВЕРКА МИНИМАЛЬНОГО ВРЕМЕНИ
+  const timeCheck = validateBookingTime(date, time);
+  if (!timeCheck.valid) {
+    console.warn(`⚠️ Неверное время от ${clientIP}`);
+    return res.status(400).json({ success: false, error: timeCheck.message });
+  }
+
+  console.log(`📥 Бронь от ${clientIP}: ${type} на ${date} в ${time}`);
 
   const success = await sendToTelegram({ date, time, price, phone, type, pc, ps5Option }, clientIP);
 
   if (success) {
-    res.json({ 
-      success: true, 
-      message: '✅ Бронирование успешно отправлено!' 
-    });
+    ipLastBooking.set(clientIP, Date.now()); // Обновляем время последней броне
+    res.json({ success: true, message: '✅ Бронирование отправлено!' });
   } else {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Ошибка отправки в Telegram' 
-    });
+    res.status(500).json({ success: false, error: 'Ошибка отправки' });
   }
 });
 
-app.use((err, req, res, next) => {
-  console.error('Ошибка:', err);
-  res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера' });
-});
+// Очистка старых записей каждый час
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, timestamp] of ipLastBooking.entries()) {
+    if (now - timestamp > 24 * 60 * 60 * 1000) {
+      ipLastBooking.delete(ip);
+    }
+  }
+  console.log(`🧹 Активных IP: ${ipLastBooking.size}`);
+}, 60 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`🚀 Сервер запущен на ${PORT}`);
+  console.log(`🛡️ Спам-защита: 10 минут между бронями`);
+  console.log(`⏳ Мин. время: 1 час вперед`);
 });
